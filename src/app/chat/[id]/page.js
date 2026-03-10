@@ -195,11 +195,7 @@ export default function ChatRoomPage() {
 
   const leaveRoom = async () => {
     try {
-      // Set offline instead of deleting so the sidebar still shows them
-      await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
-        isOnline: false,
-        isTyping: false,
-      }, { merge: true });
+      await deleteDoc(doc(db, "chatrooms", id, "members", user.uid));
 
       await addDoc(collection(db, "chatrooms", id, "messages"), {
         text: `${user.displayName} has left the chat.`,
@@ -207,16 +203,12 @@ export default function ChatRoomPage() {
         createdAt: serverTimestamp(),
       });
 
-      // Check if anyone is still online; if not, delete the room
       const membersSnapshot = await getDocs(
         collection(db, "chatrooms", id, "members")
       );
-      const anyoneOnline = membersSnapshot.docs.some(
-        (d) => d.data().isOnline === true
-      );
-      if (!anyoneOnline) {
+      if (membersSnapshot.empty) {
         await deleteDoc(doc(db, "chatrooms", id));
-        toast("Room deleted as no members remain online.");
+        toast("Room deleted as no members remain.");
       } else {
         toast.success("Left the room");
       }
