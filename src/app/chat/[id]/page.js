@@ -118,7 +118,7 @@ export default function ChatRoomPage() {
     const joinChat = async () => {
       const memberDocRef = doc(db, "chatrooms", id, "members", user.uid);
       const memberSnap = await getDoc(memberDocRef);
-      const wasAlreadyOnline = memberSnap.exists() && memberSnap.data().isOnline === true;
+      const isNewMember = !memberSnap.exists();
 
       await setDoc(memberDocRef, {
         email: user.email,
@@ -129,7 +129,7 @@ export default function ChatRoomPage() {
         joinedAt: serverTimestamp(),
       }, { merge: true });
 
-      if (!wasAlreadyOnline) {
+      if (isNewMember) {
         await addDoc(collection(db, "chatrooms", id, "messages"), {
           text: `${user.displayName} has joined the chat.`,
           system: true,

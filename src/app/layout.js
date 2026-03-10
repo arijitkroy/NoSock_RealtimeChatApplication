@@ -5,6 +5,7 @@ import Toast from "../components/Toast";
 import Navbar from "../components/Navbar";
 import { UserProvider } from "@/context/UserContext";
 import { FirebaseProvider } from "@/context/FirebaseProvider";
+import Script from "next/script";
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -21,6 +22,17 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "NoSock",
   description: "Chat in real-time or talk to Ollama Cloud AI",
+  manifest: "/manifest.json",
+  themeColor: "#7c3aed",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "NoSock",
+  },
+  icons: {
+    icon: "/icons/icon-512.png",
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export default function RootLayout({ children }) {
@@ -46,6 +58,16 @@ export default function RootLayout({ children }) {
             <Toast />
           </UserProvider>
         </FirebaseProvider>
+        <Script id="sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                  .catch(() => {});
+              });
+            }
+          `}
+        </Script>
       </body>
     </html>
   );
