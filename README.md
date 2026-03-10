@@ -1,148 +1,87 @@
-# 💬 Real Talk — Gemini + Chatroom App
+# NoSock
 
-A feature-rich chat platform built with **Next.js**, **Tailwind CSS**, **Firebase**, and **Firebase Gemini AI**.  
-Supports both **real-time chatrooms with real users** and **one-on-one conversations with Gemini AI**.
+NoSock is a modern, real-time communication platform that blends secure public and private chatrooms with an advanced AI chat interface. Built on Next.js and Firebase, NoSock features a premium glassmorphism design and provides users with a seamless, responsive experience across all devices.
 
----
+## Features
 
-## ✨ Features
+* **Real-Time Communication:** Instant messaging across public lobbies and secure, invite-only chatrooms powered by Firebase Firestore.
+* **Ollama Cloud AI Integration:** A dedicated AI chat interface utilizing the Ollama SDK. Features real-time response streaming, code syntax highlighting, and complex mathematical rendering (LaTeX).
+* **Usage Limits & Tracking:** Built-in safeguards including a daily free-tier message limit for AI interactions, preparing the platform for future premium tiers.
+* **Modern Authentication:** Secure Google Sign-In and traditional Email/Password authentication seamlessly integrated via Firebase Auth.
+* **Dynamic Customization:** Automatic avatar generation using the DiceBear API, along with an intuitive profile management system including an image cropping modal.
+* **Premium UI/UX:** A highly polished, dark-themed glassmorphism aesthetic tailored for readability and modern design standards using Tailwind CSS.
 
-### 🤖 Gemini AI Chat
-- 🔥 Powered by **Firebase Gemini AI**
-- 📄 Markdown support (tables, code, math, etc.)
-- 🧠 Streaming responses with typing indicator
-- 🗑️ Clear chat history (with Firestore cleanup)
-- 💾 Auto-save messages in Firestore
-- ⬇️ Auto-scroll to latest message
+## Technology Stack
 
-### 👥 Real-Time Chatrooms
-- 🏷️ Create or join rooms with unique codes
-- 👨‍👩‍👧 Live member count and presence
-- 📝 Send and receive messages in real time
-- 📌 Room ID copy button for easy sharing
-- 🚪 Join/leave notifications shown in chat
-- 🔐 Duplicate room names not allowed
-- 🧹 Clean UI with auto-scroll and separators
+* **Framework:** Next.js 15 (App Router), React 19
+* **Styling:** Tailwind CSS 4, React Icons
+* **Backend as a Service:** Firebase (Firestore, Authentication)
+* **AI Integration:** Ollama Node SDK
+* **Content Rendering:** React Markdown, Remark GFM, KaTeX, Highlight.js
+* **Date & Time:** Date-fns
 
-### 🎨 Design & UX
-- 🌓 Dark mode default
-- 🪄 DiceBear avatar selection + preview
-- 📱 Fully responsive on mobile and desktop
+## Prerequisites
 
----
+Before running the application locally, ensure you have the following installed:
+* Node.js (v18 or higher recommended)
+* npm or yarn
+* A Firebase Project with Firestore and Authentication (Google & Email/Password providers) enabled
+* An Ollama API Key (if utilizing the Cloud AI features)
 
-## 📦 Tech Stack
+## Environment Variables
 
-| Tech                 | Purpose                         |
-|----------------------|----------------------------------|
-| **Next.js**          | App framework & routing         |
-| **Tailwind CSS**     | Styling                         |
-| **Firebase**         | Auth, Firestore, Realtime Sync  |
-| **Firebase Gemini AI** | Gemini model integration      |
-| **React Markdown**   | Message formatting              |
+Create a `.env.local` file in the root directory and add the following configuration variables. Ensure you replace the placeholder values with your actual project credentials. 
 
----
+Note: To maintain security compliance, Firebase Client configuration variables are hydrated serverside rather than exposing them via `NEXT_PUBLIC_` prefixes.
 
-## 🚀 How to Use the App
-
-### 🔐 Authentication
-- Log in using your Google account (via Firebase Auth)
-- Your identity will be linked with chatroom activity and AI chat history
-
-### 💬 Chat with Gemini AI
-1. Go to the **Gemini Chat** page
-2. Start typing and press `Send` or hit `Enter`
-3. Watch Gemini respond live (streamed)
-4. You can clear messages using the "Clear Chat" button
-
-### 👥 Chatroom Mode
-1. Navigate to the **Chatroom Lobby**
-2. Either:
-   - Create a new room with a unique name, or
-   - Join using an existing room code
-3. You'll be redirected to the room where:
-   - You can chat with others in real-time
-   - Messages are updated live via Firestore
-   - Join/leave alerts are displayed in chat
-   - Member count is shown and updates in real-time
-   - Room ID is easily copyable from the top right
-
----
-
-## 🔧 Setup Instructions
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/your-username/real-talk.git
-cd real-talk
+```env
+FIREBASE_API_KEY="your_firebase_api_key"
+FIREBASE_AUTH_DOMAIN="your_firebase_auth_domain"
+FIREBASE_PROJECT_ID="your_firebase_project_id"
+FIREBASE_STORAGE_BUCKET="your_firebase_storage_bucket"
+FIREBASE_MESSAGING_SENDER_ID="your_firebase_messaging_sender_id"
+FIREBASE_APP_ID="your_firebase_app_id"
+OLLAMA_API_KEY="your_ollama_api_key"
 ```
 
-### 2. Install Dependencies
+## Installation and Setup
 
-```bash
-npm install
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/nosock.git
+   cd nosock
+   ```
 
-### 3. Firebase Configuration
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-- Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-- Enable:
-  - **Authentication (Google Sign-In)**
-  - **Cloud Firestore**
-  - **Firebase Gemini AI** (`firebase/ai`)
-- Copy your Firebase config into `/lib/firebase.js`
+3. **Run the development server**
+   ```bash
+   npm run dev
+   ```
 
-### 4. Run the App Locally
+4. **Access the application**
+   Open your browser and navigate to `http://localhost:3000`.
 
-```bash
-npm run dev
-```
+## Architecture Overview
 
----
+* **Authentication Context:** Managed globally through `UserContext` and `FirebaseProvider`, acting as a route guard to prevent unauthenticated access to protected areas like `/chat` and `/ollama`.
+* **Streaming API:** The `/api/ollama` endpoint functions as a secure server-side proxy, establishing a `ReadableStream` connection to Ollama and piping chunked data directly to the client UI to prevent long load stalls.
+* **Firestore Data Model:** 
+  * `users/{uid}`: Stores profile metadata, avatar preferences, and daily AI message limits.
+  * `chatrooms/{roomId}`: Tracks active room metadata, sub-collections for enrolled members, and real-time message feeds.
+  * `users/{uid}/ollamaMessages`: Persists AI conversational history securely per user.
 
-## 📐 Markdown + LaTeX Support
+## Contributing
 
-This app supports enhanced rendering of:
-- **Bold**, *Italic*, `inline code`
-- ```js
-  Code blocks
-  ```
-- 📊 Tables
-- 📐 LaTeX expressions (`$E = mc^2$`)
-- 😄 Emojis
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-Powered by:
-- `react-markdown`
-- `remark-gfm`
-- `rehype-katex`
-- `rehype-highlight`
+## License
 
----
-
-## ✅ To-Do
-
-- [ ] Typing indicator in chatroom
-- [ ] Room privacy & password protection
-- [ ] Media sharing (images, audio)
-- [ ] Downloadable chat history
-- [ ] Message reactions
-- [ ] Push notifications
-
----
-
-## 🧠 Credits
-
-- Gemini AI via `@firebase/ai`
-- Avatars via [DiceBear Avatars](https://www.dicebear.com)
-- Markdown rendering powered by React Markdown + plugins
-
----
-
-## 📄 License
-
-MIT © 2025 [Arijit Kumar Roy](https://github.com/arijitkroy)
-
----
-
-**Happy chatting! 💬**
+Distributed under the MIT License. See `LICENSE` for more information.

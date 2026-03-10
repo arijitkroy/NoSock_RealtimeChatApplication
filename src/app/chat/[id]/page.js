@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { useFirebase } from "@/context/FirebaseProvider";
 import {
   collection,
   addDoc,
@@ -16,6 +16,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { toast } from "react-hot-toast";
+import { FiCopy, FiSettings, FiTrash2, FiLogOut } from "react-icons/fi";
 import { format, isToday, isYesterday } from "date-fns";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -23,15 +24,19 @@ import rehypeRaw from "rehype-raw";
 import rehypeHighlight from "rehype-highlight";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import { useUser } from "@/context/UserContext";
 
 export default function ChatRoomPage() {
+  const { auth, db } = useFirebase();
+  const { user, loading: userLoading } = useUser();
   const { id } = useParams();
   const router = useRouter();
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
-  const [user, setUser] = useState(null);
   const [hasJoined, setHasJoined] = useState(false);
-  const [memberCount, setMemberCount] = useState(0);
+  const [members, setMembers] = useState([]);
+  const [roomData, setRoomData] = useState(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const bottomRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -43,16 +48,14 @@ export default function ChatRoomPage() {
   }, [messages]);
 
   useEffect(() => {
-    const unsubAuth = auth.onAuthStateChanged((user) => {
-      if (!user) router.push("/auth/login");
-      else setUser(user);
-    });
-    return () => unsubAuth();
-  }, [router]);
+    if (!userLoading && !user) {
+      router.push("/");
+    }
+  }, [user, userLoading, router]);
 
   // Fetch & listen to messages + members
   useEffect(() => {
-    if (!id || !user) return;
+    if (!id || !user || !db) return;
 
     const msgQuery = query(
       collection(db, "chatrooms", id, "messages"),
@@ -64,7 +67,16 @@ export default function ChatRoomPage() {
 
     const membersCol = collection(db, "chatrooms", id, "members");
     const unsubMembers = onSnapshot(membersCol, (snapshot) => {
-      setMemberCount(snapshot.size);
+      setMembers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() })));
+    });
+
+    const roomRef = doc(db, "chatrooms", id);
+    const unsubRoom = onSnapshot(roomRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setRoomData({ id: docSnap.id, ...docSnap.data() });
+      } else {
+        router.push("/chat");
+      }
     });
 
     const joinChat = async () => {
@@ -74,8 +86,12 @@ export default function ChatRoomPage() {
       );
 
       await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
+        email: user.email,
+        name: user.displayName,
+        isOnline: true,
+        photoURL: user.photoURL || "",
         joinedAt: serverTimestamp(),
-      });
+      }, { merge: true });
 
       if (!alreadyJoined) {
         await addDoc(collection(db, "chatrooms", id, "messages"), {
@@ -89,9 +105,20 @@ export default function ChatRoomPage() {
     joinChat();
     setHasJoined(true);
 
+    const handleBeforeUnload = async () => {
+      await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
+        isOnline: false,
+      }, { merge: true });
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
       unsubMessages();
       unsubMembers();
+      unsubRoom();
+      handleBeforeUnload();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [id, user]);
 
@@ -137,6 +164,24 @@ export default function ChatRoomPage() {
     }
   };
 
+  const deleteRoom = async () => {
+    if (!window.confirm("Are you sure you want to permanently delete this room?")) return;
+    try {
+      const membersSnap = await getDocs(collection(db, "chatrooms", id, "members"));
+      membersSnap.forEach(async (m) => await deleteDoc(doc(db, "chatrooms", id, "members", m.id)));
+      
+      const messagesSnap = await getDocs(collection(db, "chatrooms", id, "messages"));
+      messagesSnap.forEach(async (m) => await deleteDoc(doc(db, "chatrooms", id, "messages", m.id)));
+      
+      await deleteDoc(doc(db, "chatrooms", id));
+      toast.success("Room deleted");
+      router.push("/chat");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete room");
+    }
+  };
+
   const groupMessagesByDay = (messages) => {
     const grouped = {};
     messages.forEach((msg) => {
@@ -151,117 +196,202 @@ export default function ChatRoomPage() {
 
   const groupedMessages = groupMessagesByDay(messages);
 
-  return (
-    <div className="bg-gray-900 text-white flex flex-col items-center px-4 py-6 overflow-hidden h-[90vh]">
-      <div className="w-full max-w-7xl bg-gray-800 rounded-lg shadow flex flex-col overflow-y-auto h-[100vh] space-y-4 custom-scrollbar relative">
+  if (userLoading || !user) {
+    return (
+      <div className="min-h-[90vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-violet-500/20 border-t-violet-500 rounded-full animate-spin"></div>
+        <p className="text-violet-400 font-medium animate-pulse text-sm">Connecting to Room...</p>
+      </div>
+    );
+  }
 
-        {/* Top UI Bar inside box */}
-        <div className="flex justify-between items-center text-sm text-gray-400 px-5 pt-4">
-          <span className="font-medium">
-            Members: {memberCount}
-          </span>
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(id);
-              toast.success("Room ID copied");
-            }}
-            className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded"
-          >
-            Copy Room ID
-          </button>
+  return (
+    <div className="relative min-h-[90vh] flex flex-col items-center px-4 md:px-8 py-6 overflow-hidden max-w-[98vw] lg:max-w-screen-2xl mx-auto w-full">
+      {/* Background glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[80vh] bg-violet-600/5 rounded-full blur-[150px] pointer-events-none"></div>
+
+      <div className="relative z-10 w-full glass-panel rounded-3xl shadow-2xl flex flex-col h-[85vh] overflow-hidden border border-white/10">
+        
+        {/* Top UI Bar */}
+        <div className="flex justify-between items-center px-6 py-4 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-50">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+            <span className="text-sm font-semibold text-neutral-200">
+              {members.filter(m => m.isOnline).length} Member{members.filter(m => m.isOnline).length === 1 ? "" : "s"} Online
+            </span>
+          </div>
+          <div className="flex gap-2 relative">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(id);
+                toast.success("Room ID copied");
+              }}
+              className="text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-3 py-1.5 rounded-full transition-all border border-white/5 flex items-center gap-2"
+            >
+              <FiCopy /> Copy ID
+            </button>
+
+            <button
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-neutral-200 transition-all border border-white/5"
+            >
+              <FiSettings size={14} className={isSettingsOpen ? "rotate-90 transition-transform" : "transition-transform"} />
+            </button>
+
+            {isSettingsOpen && (
+              <div className="absolute right-0 top-[110%] w-48 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl py-2 z-99">
+                <button
+                  onClick={leaveRoom}
+                  className="w-full text-left px-5 py-2.5 text-sm text-neutral-200 hover:bg-white/10 flex items-center gap-3 transition-colors"
+                >
+                  <FiLogOut size={16} /> Leave Room
+                </button>
+                {roomData?.createdBy === user?.uid && (
+                  <button
+                    onClick={deleteRoom}
+                    className="w-full text-left px-5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-3 transition-colors mt-1"
+                  >
+                    <FiTrash2 size={16} /> Delete Room
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Messages */}
-        <div className="px-5">
-          {Object.entries(groupedMessages).map(([dateKey, dayMessages]) => {
-            const firstDate = dayMessages[0]?.createdAt?.toDate?.();
-            const label = isToday(firstDate)
-              ? "Today"
-              : isYesterday(firstDate)
-              ? "Yesterday"
-              : format(firstDate, "MMMM d, yyyy");
+        <div className="flex flex-1 overflow-hidden">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar lg:border-r border-white/5">
+            {Object.entries(groupedMessages).map(([dateKey, dayMessages]) => {
+              const firstDate = dayMessages[0]?.createdAt?.toDate?.();
+              const label = isToday(firstDate)
+                ? "Today"
+                : isYesterday(firstDate)
+                ? "Yesterday"
+                : format(firstDate, "MMMM d, yyyy");
 
-            return (
-              <div key={dateKey}>
-                <div className="text-center text-sm text-gray-400 my-6 font-medium">
-                  {label}
-                </div>
-                {dayMessages.map((msg, i) => {
-                  const isUser = msg.user === user?.displayName;
-                  const isSystem = msg.system;
-                  return (
-                    <div
-                      key={msg.id || i}
-                      className={`flex mb-2 ${
-                        isSystem
-                          ? "justify-center"
-                          : isUser
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
+              return (
+                <div key={dateKey}>
+                  <div className="flex justify-center my-6">
+                    <div className="text-xs font-medium text-neutral-400 bg-white/5 px-4 py-1 rounded-full border border-white/5">
+                      {label}
+                    </div>
+                  </div>
+                  {dayMessages.map((msg, i) => {
+                    const isUser = msg.user === user?.displayName;
+                    const isSystem = msg.system;
+                    return (
                       <div
-                        className={`max-w-xs px-4 py-2 rounded-xl shadow text-sm ${
+                        key={msg.id || i}
+                        className={`flex mb-4 ${
                           isSystem
-                            ? "bg-gray-700 text-gray-200 text-center"
+                            ? "justify-center"
                             : isUser
-                            ? "bg-indigo-500 text-white rounded-br-none"
-                            : "bg-white border border-gray-200 text-gray-900 rounded-bl-none"
+                            ? "justify-end"
+                            : "justify-start"
                         }`}
                       >
-                        {!isUser && !isSystem && (
-                          <p className="text-xs font-medium text-gray-500 mb-1">
-                            {msg.user}
-                          </p>
-                        )}
-                        <div className="prose prose-invert max-w-none break-words whitespace-pre-wrap overflow-x-auto p-1 custom-scrollbar">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm, remarkMath]}
-                            rehypePlugins={[
-                              rehypeRaw,
-                              rehypeHighlight,
-                              rehypeKatex,
-                            ]}
-                          >
-                            {msg.text}
-                          </ReactMarkdown>
+                        <div
+                          className={`max-w-[75%] md:max-w-md px-4 py-2.5 text-sm shadow-md transition-all ${
+                            isSystem
+                              ? "bg-white/5 backdrop-blur-sm text-neutral-400 text-center rounded-full border border-white/5 text-xs italic"
+                              : isUser
+                              ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white rounded-xl rounded-tr-sm"
+                              : "bg-white/10 backdrop-blur-md border border-white/5 text-neutral-100 rounded-xl rounded-tl-sm"
+                          }`}
+                        >
+                          {!isUser && !isSystem && (
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-xs font-bold text-violet-300">
+                                {msg.user}
+                              </p>
+                              <span className="text-[10px] text-neutral-400">
+                                {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "HH:mm") : ""}
+                              </span>
+                            </div>
+                          )}
+                          <div className="prose prose-invert prose-sm max-w-none break-words whitespace-pre-wrap overflow-x-auto p-1 custom-scrollbar leading-relaxed">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm, remarkMath]}
+                              rehypePlugins={[
+                                rehypeRaw,
+                                rehypeHighlight,
+                                rehypeKatex,
+                              ]}
+                            >
+                              {msg.text}
+                            </ReactMarkdown>
+                          </div>
+                          {isUser && !isSystem && (
+                            <div className="text-right mt-1">
+                               <span className="text-[10px] text-violet-200/70">
+                                {msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "HH:mm") : ""}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                    );
+                  })}
+                </div>
+              );
+            })}
+            <div ref={bottomRef} className="h-4" />
+          </div>
+
+          {/* Members Sidebar */}
+          <div className="hidden lg:flex flex-col w-64 bg-black/10 backdrop-blur-md z-5">
+            <div className="p-4 border-b border-white/5">
+              <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {members.map(member => (
+                <div key={member.uid} className="flex items-center gap-3">
+                  <div className="relative">
+                    <img 
+                      src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
+                      alt={member.name}
+                      className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                    />
+                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0d1020] ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-neutral-200 truncate w-36">
+                      {member.name || "Anonymous User"}
+                      {member.uid === user?.uid && " (You)"}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {member.isOnline ? "Online" : "Offline"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div ref={bottomRef} className="invisible h-0" />
+        {/* Input Area */}
+        {hasJoined && (
+          <div className="p-4 bg-black/20 backdrop-blur-lg border-t border-white/5">
+            <div className="flex w-full gap-3">
+              <input
+                type="text"
+                className="flex-grow rounded-full bg-white/5 border border-white/10 px-5 py-3 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
+                placeholder="Type a message..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              />
+              <button
+                className="bg-violet-600 text-white px-8 py-3 rounded-full font-bold shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all active:scale-95"
+                onClick={sendMessage}
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-
-      {hasJoined && (
-        <div className="mt-4 flex w-full max-w-7xl gap-2">
-          <input
-            type="text"
-            className="flex-grow rounded-md bg-gray-800 border border-gray-700 px-4 py-2 focus:outline-none text-white"
-            placeholder="Type a message..."
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          />
-          <button
-            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-            onClick={sendMessage}
-          >
-            Send
-          </button>
-          <button
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-            onClick={leaveRoom}
-          >
-            Leave
-          </button>
-        </div>
-      )}
     </div>
   );
 }

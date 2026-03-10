@@ -4,13 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useUser } from "@/context/UserContext";
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { useFirebase } from "@/context/FirebaseProvider";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { useState, useEffect, useRef } from "react";
 import { HiMenu, HiX } from "react-icons/hi";
 
 export default function Navbar() {
+  const { auth } = useFirebase();
   const { user } = useUser();
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -42,53 +43,53 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="sticky top-0 z-50 bg-black text-white px-6 py-4 shadow-md">
-      <div className="flex justify-between items-center">
-        <Link href="/" className="text-xl font-bold">
-          Real Talk v2
+    <nav className="sticky top-0 z-50 w-full border-b border-white/5 bg-black/40 backdrop-blur-xl transition-all duration-300">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <Link href="/" className="text-xl font-extrabold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent drop-shadow-[0_0_15px_rgba(167,139,250,0.3)]">
+          NoSock
         </Link>
 
         {/* Mobile Menu Button */}
         <button
-          className="sm:hidden"
+          className="sm:hidden text-neutral-300 hover:text-white transition"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         >
-          {mobileMenuOpen ? <HiX size={24} /> : <HiMenu size={24} />}
+          {mobileMenuOpen ? <HiX size={28} /> : <HiMenu size={28} />}
         </button>
 
         {/* Desktop Links */}
-        <div className="hidden sm:flex items-center space-x-4">
-          <Link href="/chat">Chatrooms</Link>
-          <Link href="/gemini">Gemini Chat</Link>
+        <div className="hidden sm:flex items-center space-x-6 text-sm font-medium">
+          <Link href="/chat" className="text-neutral-300 hover:text-violet-400 hover:drop-shadow-[0_0_8px_rgba(167,139,250,0.5)] transition-all">Chatrooms</Link>
+          <Link href="/ollama" className="text-neutral-300 hover:text-violet-400 hover:drop-shadow-[0_0_8px_rgba(167,139,250,0.5)] transition-all">Ollama Chat</Link>
 
           {user ? (
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2 focus:outline-none"
+                className="flex items-center gap-3 focus:outline-none hover:opacity-80 transition"
               >
+                <span className="text-sm hidden md:inline font-medium text-neutral-200">{username}</span>
                 <Image
                   src={avatar}
                   alt="avatar"
-                  className="w-8 h-8 rounded-full border border-white"
+                  className="w-9 h-9 rounded-full ring-2 ring-violet-500/50 object-cover"
                   width={40}
                   height={40}
                 />
-                <span className="text-sm hidden md:inline">{username}</span>
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-neutral-800 text-black dark:text-white rounded shadow-lg z-50">
+                <div className="absolute right-0 mt-3 w-48 glass-panel rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                   <Link
                     href="/profile"
-                    className="block px-4 py-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    className="block px-4 py-3 text-sm text-neutral-200 hover:bg-white/10 hover:text-white transition"
                     onClick={() => setDropdownOpen(false)}
                   >
                     View Profile
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                    className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 hover:text-red-300 transition"
                   >
                     Logout
                   </button>
@@ -98,7 +99,7 @@ export default function Navbar() {
           ) : (
             <Link
               href="/auth/login"
-              className="ml-2 px-3 py-1 bg-blue-600 rounded hover:bg-blue-700"
+              className="ml-2 px-5 py-2 text-sm font-semibold rounded-full bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_15px_rgba(124,58,237,0.4)] transition-all"
             >
               Login
             </Link>
@@ -108,25 +109,25 @@ export default function Navbar() {
 
       {/* Mobile Menu Links */}
       {mobileMenuOpen && (
-        <div className="sm:hidden mt-4 space-y-2">
-          <Link href="/chat" onClick={() => setMobileMenuOpen(false)} className="block">Chatrooms</Link>
-          <Link href="/gemini" onClick={() => setMobileMenuOpen(false)} className="block">Gemini Chat</Link>
+        <div className="sm:hidden border-t border-white/5 bg-black/80 backdrop-blur-md space-y-1 px-4 py-4 animate-in slide-in-from-top-2">
+          <Link href="/chat" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">Chatrooms</Link>
+          <Link href="/ollama" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">Ollama Chat</Link>
 
           {user ? (
             <>
-              <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="block">View Profile</Link>
+              <Link href="/profile" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">View Profile</Link>
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   handleLogout();
                 }}
-                className="block w-full text-left"
+                className="block w-full text-left px-4 py-3 text-red-400 hover:bg-white/5 rounded-lg transition"
               >
                 Logout
               </button>
             </>
           ) : (
-            <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)} className="block">Login</Link>
+            <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-violet-400 hover:bg-white/5 rounded-lg transition font-medium">Login</Link>
           )}
         </div>
       )}

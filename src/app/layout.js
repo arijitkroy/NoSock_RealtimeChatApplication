@@ -4,6 +4,7 @@ import "./globals.css";
 import Toast from "../components/Toast";
 import Navbar from "../components/Navbar";
 import { UserProvider } from "@/context/UserContext";
+import { FirebaseProvider } from "@/context/FirebaseProvider";
 import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 
@@ -18,21 +19,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "RealTalk Chat",
-  description: "Chat in real-time or talk to Gemini AI",
+  title: "NoSock",
+  description: "Chat in real-time or talk to Ollama Cloud AI",
 };
 
 export default function RootLayout({ children }) {
+  const firebaseConfig = {
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+  };
+
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-br from-indigo-100 to-fuchsia-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-950 text-neutral-50 min-h-screen selection:bg-violet-500/30`}
       >
-        <UserProvider>
-          <Navbar />
-          {children}
-          <Toast />
-        </UserProvider>
+        <FirebaseProvider config={firebaseConfig}>
+          <UserProvider>
+            <Navbar />
+            {children}
+            <Toast />
+          </UserProvider>
+        </FirebaseProvider>
       </body>
     </html>
   );
