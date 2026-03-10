@@ -39,6 +39,7 @@ export default function ChatRoomPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const hasInitialLoadRef = useRef(true);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -47,6 +48,13 @@ export default function ChatRoomPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -63,7 +71,33 @@ export default function ChatRoomPage() {
       orderBy("createdAt")
     );
     const unsubMessages = onSnapshot(msgQuery, (snapshot) => {
-      setMessages(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+      const newMessages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setMessages(newMessages);
+
+      // Send browser notifications for new messages from others
+      if (hasInitialLoadRef.current) {
+        hasInitialLoadRef.current = false;
+        return;
+      }
+
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const msg = change.doc.data();
+          if (
+            msg.user &&
+            msg.user !== user?.displayName &&
+            !msg.system &&
+            document.visibilityState === "hidden" &&
+            Notification.permission === "granted"
+          ) {
+            new Notification(`${msg.user} in NoSock`, {
+              body: msg.text?.slice(0, 100) || "Sent a message",
+              icon: "/favicon.ico",
+              tag: change.doc.id,
+            });
+          }
+        }
+      });
     });
 
     const membersCol = collection(db, "chatrooms", id, "members");
