@@ -119,8 +119,9 @@ export default function ChatRoomPage() {
 
     const joinChat = async () => {
       const memberDocRef = doc(db, "chatrooms", id, "members", user.uid);
-      const memberSnap = await getDoc(memberDocRef);
-      const isNewMember = !memberSnap.exists();
+      const rejoinFlagRef = doc(db, "chatrooms", id, "rejoinFlags", user.uid);
+      const rejoinFlagSnap = await getDoc(rejoinFlagRef);
+      const shouldPostJoinMessage = rejoinFlagSnap.exists() && rejoinFlagSnap.data()?.shouldAnnounceJoin === true;
 
       await setDoc(memberDocRef, {
         email: user.email,
@@ -131,12 +132,13 @@ export default function ChatRoomPage() {
         joinedAt: serverTimestamp(),
       }, { merge: true });
 
-      if (isNewMember) {
+      if (shouldPostJoinMessage) {
         await addDoc(collection(db, "chatrooms", id, "messages"), {
           text: `${user.displayName} has joined the chat.`,
           system: true,
           createdAt: serverTimestamp(),
         });
+        await deleteDoc(rejoinFlagRef);
       }
     };
 
@@ -198,12 +200,18 @@ export default function ChatRoomPage() {
   const leaveRoom = async () => {
     try {
       hasLeftRoomRef.current = true;
+ 
       await deleteDoc(doc(db, "chatrooms", id, "members", user.uid));
 
       await addDoc(collection(db, "chatrooms", id, "messages"), {
         text: `${user.displayName} has left the chat.`,
         system: true,
         createdAt: serverTimestamp(),
+      });
+
+      await setDoc(doc(db, "chatrooms", id, "rejoinFlags", user.uid), {
+        shouldAnnounceJoin: true,
+        setAt: serverTimestamp(),
       });
 
       const membersSnapshot = await getDocs(
