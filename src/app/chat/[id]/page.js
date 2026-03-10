@@ -431,41 +431,6 @@ export default function ChatRoomPage() {
             </div>
           </div>
 
-          {/* Members Sidebar - Mobile Overlay */}
-          {isMobileMembersOpen && (
-            <div className="lg:hidden fixed inset-0 z-40" onClick={() => setIsMobileMembersOpen(false)}>
-              <div className="absolute inset-0 bg-black/50"></div>
-              <div className="absolute right-0 top-0 h-full w-72 bg-neutral-900 border-l border-white/10 flex flex-col animate-in slide-in-from-right" onClick={(e) => e.stopPropagation()}>
-                <div className="p-4 border-b border-white/5 flex justify-between items-center">
-                  <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
-                  <button onClick={() => setIsMobileMembersOpen(false)} className="text-neutral-400 hover:text-white text-lg">&times;</button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                  {members.map(member => (
-                    <div key={member.uid} className="flex items-center gap-3">
-                      <div className="relative">
-                        <img 
-                          src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
-                          alt={member.name}
-                          className="w-8 h-8 rounded-full border border-white/10 object-cover"
-                        />
-                        <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0d1020] ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-neutral-200 truncate w-44">
-                          {member.name || "Anonymous User"}
-                          {member.uid === user?.uid && " (You)"}
-                        </span>
-                        <span className="text-[10px] text-neutral-500">
-                          {member.isOnline ? "Online" : "Offline"}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Input Area */}
@@ -505,6 +470,42 @@ export default function ChatRoomPage() {
           </div>
         )}
       </div>
+
+      {/* Members Sidebar - Mobile Overlay */}
+      {isMobileMembersOpen && (
+        <div className="lg:hidden fixed inset-0 z-[9999]" onClick={() => setIsMobileMembersOpen(false)}>
+          <div className="absolute inset-0 bg-black/60"></div>
+          <div className="absolute right-0 top-0 h-full w-72 bg-neutral-900 border-l border-white/10 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-white/5 flex justify-between items-center">
+              <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
+              <button onClick={() => setIsMobileMembersOpen(false)} className="text-neutral-400 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+              {members.map(member => (
+                <div key={member.uid} className="flex items-center gap-3">
+                  <div className="relative">
+                    <img 
+                      src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
+                      alt={member.name}
+                      className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                    />
+                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-neutral-900 ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-neutral-200 truncate w-44">
+                      {member.name || "Anonymous User"}
+                      {member.uid === user?.uid && " (You)"}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      {member.isOnline ? "Online" : "Offline"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
