@@ -42,6 +42,7 @@ export default function ChatRoomPage() {
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const hasInitialLoadRef = useRef(true);
+  const hasLeftRoomRef = useRef(false);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -143,6 +144,7 @@ export default function ChatRoomPage() {
     setHasJoined(true);
 
     const handleBeforeUnload = async () => {
+      if (hasLeftRoomRef.current) return;
       await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
         isOnline: false,
         isTyping: false,
@@ -195,6 +197,7 @@ export default function ChatRoomPage() {
 
   const leaveRoom = async () => {
     try {
+      hasLeftRoomRef.current = true;
       await deleteDoc(doc(db, "chatrooms", id, "members", user.uid));
 
       await addDoc(collection(db, "chatrooms", id, "messages"), {
