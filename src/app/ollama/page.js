@@ -216,20 +216,20 @@ export default function OllamaChatPage() {
       {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[80vh] bg-violet-600/5 rounded-full blur-[150px] pointer-events-none"></div>
 
-      <div className="relative z-10 w-full glass-panel rounded-3xl shadow-2xl flex flex-col h-[85vh] overflow-hidden border border-white/10">
+      <div className="relative z-10 w-full glass-panel rounded-2xl md:rounded-3xl shadow-2xl flex flex-col h-[92vh] md:h-[85vh] overflow-hidden border border-white/10">
         
         {/* Top UI Bar */}
-        <div className="flex justify-between items-center px-6 py-4 bg-white/5 backdrop-blur-md border-b border-white/5">
+        <div className="flex justify-between items-center px-3 md:px-6 py-3 md:py-4 bg-white/5 backdrop-blur-md border-b border-white/5">
           <div className="flex items-center gap-3">
             <span className="text-xl text-violet-400"><FaCloud /></span>
             <span className="text-sm font-semibold text-neutral-200">
               Ollama Cloud AI
             </span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 md:gap-2">
             <button
               onClick={handleShareChatClick}
-              className="text-xs bg-violet-500/20 hover:bg-violet-500 text-violet-300 hover:text-white px-4 py-1.5 rounded-full transition-all border border-violet-500/20 hover:border-violet-500 flex items-center gap-2"
+              className="text-xs bg-violet-500/20 hover:bg-violet-500 text-violet-300 hover:text-white px-3 md:px-4 py-1.5 rounded-full transition-all border border-violet-500/20 hover:border-violet-500 flex items-center gap-1.5"
             >
               <FiShare2 /> Share Chat
             </button>
@@ -337,11 +337,11 @@ export default function OllamaChatPage() {
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-black/20 backdrop-blur-lg border-t border-white/5">
-          <div className="flex w-full gap-3">
+        <div className="p-3 md:p-4 bg-black/20 backdrop-blur-lg border-t border-white/5">
+          <div className="flex w-full gap-2 md:gap-3">
             <input
               type="text"
-              className="flex-grow rounded-full bg-white/5 border border-white/10 px-5 py-3 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
+              className="flex-grow rounded-full bg-white/5 border border-white/10 px-4 md:px-5 py-2.5 md:py-3 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
               placeholder="Message Ollama..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -349,7 +349,7 @@ export default function OllamaChatPage() {
               disabled={loading}
             />
             <button
-              className={`px-8 py-3 rounded-full font-bold shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all active:scale-95 ${
+              className={`px-5 md:px-8 py-2.5 md:py-3 rounded-full font-bold text-sm shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all active:scale-95 ${
                 loading 
                   ? "bg-violet-600/50 text-white/50 cursor-not-allowed" 
                   : "bg-violet-600 text-white hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(124,58,237,0.5)]"

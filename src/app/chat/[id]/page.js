@@ -38,6 +38,7 @@ export default function ChatRoomPage() {
   const [members, setMembers] = useState([]);
   const [roomData, setRoomData] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileMembersOpen, setIsMobileMembersOpen] = useState(false);
   const bottomRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const hasInitialLoadRef = useRef(true);
@@ -272,23 +273,30 @@ export default function ChatRoomPage() {
       {/* Background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[80vh] bg-violet-600/5 rounded-full blur-[150px] pointer-events-none"></div>
 
-      <div className="relative z-10 w-full glass-panel rounded-3xl shadow-2xl flex flex-col h-[85vh] overflow-hidden border border-white/10">
+      <div className="relative z-10 w-full glass-panel rounded-2xl md:rounded-3xl shadow-2xl flex flex-col h-[92vh] md:h-[85vh] overflow-hidden border border-white/10">
         
         {/* Top UI Bar */}
-        <div className="flex justify-between items-center px-6 py-4 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-50">
+        <div className="flex justify-between items-center px-3 md:px-6 py-3 md:py-4 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-50">
           <div className="flex items-center gap-3">
             <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-sm font-semibold text-neutral-200">
-              {members.filter(m => m.isOnline).length} Member{members.filter(m => m.isOnline).length === 1 ? "" : "s"} Online
+            <span className="text-xs md:text-sm font-semibold text-neutral-200">
+              {members.filter(m => m.isOnline).length} Online
             </span>
           </div>
-          <div className="flex gap-2 relative">
+          <div className="flex gap-1.5 md:gap-2 relative">
+            {/* Mobile members toggle */}
+            <button
+              onClick={() => setIsMobileMembersOpen(!isMobileMembersOpen)}
+              className="lg:hidden text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-3 py-1.5 rounded-full transition-all border border-white/5"
+            >
+              Members
+            </button>
             <button
               onClick={() => {
                 navigator.clipboard.writeText(id);
                 toast.success("Room ID copied");
               }}
-              className="text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-3 py-1.5 rounded-full transition-all border border-white/5 flex items-center gap-2"
+              className="text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-2.5 md:px-3 py-1.5 rounded-full transition-all border border-white/5 flex items-center gap-1.5"
             >
               <FiCopy /> Copy ID
             </button>
@@ -323,7 +331,7 @@ export default function ChatRoomPage() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 custom-scrollbar lg:border-r border-white/5">
+          <div className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4 custom-scrollbar lg:border-r border-white/5">
             {Object.entries(groupedMessages).map(([dateKey, dayMessages]) => {
               const firstDate = dayMessages[0]?.createdAt?.toDate?.();
               const label = isToday(firstDate)
@@ -401,8 +409,8 @@ export default function ChatRoomPage() {
             <div ref={bottomRef} className="h-4" />
           </div>
 
-          {/* Members Sidebar */}
-          <div className="hidden lg:flex flex-col w-64 bg-black/10 backdrop-blur-md z-5">
+          {/* Members Sidebar - Desktop */}
+          <div className="hidden lg:flex flex-col w-64 bg-black/10 backdrop-blur-md">
             <div className="p-4 border-b border-white/5">
               <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
             </div>
@@ -430,6 +438,42 @@ export default function ChatRoomPage() {
               ))}
             </div>
           </div>
+
+          {/* Members Sidebar - Mobile Overlay */}
+          {isMobileMembersOpen && (
+            <div className="lg:hidden fixed inset-0 z-40" onClick={() => setIsMobileMembersOpen(false)}>
+              <div className="absolute inset-0 bg-black/50"></div>
+              <div className="absolute right-0 top-0 h-full w-72 bg-neutral-900 border-l border-white/10 flex flex-col animate-in slide-in-from-right" onClick={(e) => e.stopPropagation()}>
+                <div className="p-4 border-b border-white/5 flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
+                  <button onClick={() => setIsMobileMembersOpen(false)} className="text-neutral-400 hover:text-white text-lg">&times;</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                  {members.map(member => (
+                    <div key={member.uid} className="flex items-center gap-3">
+                      <div className="relative">
+                        <img 
+                          src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
+                          alt={member.name}
+                          className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                        />
+                        <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0d1020] ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-neutral-200 truncate w-44">
+                          {member.name || "Anonymous User"}
+                          {member.uid === user?.uid && " (You)"}
+                        </span>
+                        <span className="text-[10px] text-neutral-500">
+                          {member.isOnline ? "Online" : "Offline"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Area */}
@@ -450,17 +494,17 @@ export default function ChatRoomPage() {
                 </div>
               );
             })()}
-            <div className="flex w-full gap-3 p-4">
+            <div className="flex w-full gap-2 md:gap-3 p-3 md:p-4">
               <input
                 type="text"
-                className="flex-grow rounded-full bg-white/5 border border-white/10 px-5 py-3 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
+                className="flex-grow rounded-full bg-white/5 border border-white/10 px-4 md:px-5 py-2.5 md:py-3 text-sm focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
                 placeholder="Type a message..."
                 value={text}
                 onChange={handleInputChange}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               />
               <button
-                className="bg-violet-600 text-white px-8 py-3 rounded-full font-bold shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all active:scale-95"
+                className="bg-violet-600 text-white px-5 md:px-8 py-2.5 md:py-3 rounded-full font-bold text-sm shadow-[0_0_15px_rgba(124,58,237,0.3)] hover:bg-violet-500 hover:shadow-[0_0_20px_rgba(124,58,237,0.5)] transition-all active:scale-95"
                 onClick={sendMessage}
               >
                 Send

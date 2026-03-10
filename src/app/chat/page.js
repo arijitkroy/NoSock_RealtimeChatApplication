@@ -36,7 +36,7 @@ export default function ChatLobbyPage() {
   }, [user, userLoading, router]);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db || !user) return;
     const unsubscribers = [];
 
     chatrooms.forEach((room) => {
@@ -52,25 +52,27 @@ export default function ChatLobbyPage() {
     });
 
     return () => unsubscribers.forEach((unsub) => unsub());
-  }, [chatrooms]);
+  }, [chatrooms, user]);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db || !user) return;
     const unsub = onSnapshot(collection(db, "chatrooms"), async (snapshot) => {
       const rooms = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const memberSnap = await getDocs(collection(db, "chatrooms", docSnap.id, "members"));
+          const isMember = memberSnap.docs.some((m) => m.id === user.uid);
           return {
             id: docSnap.id,
             ...docSnap.data(),
             memberCount: memberSnap.size,
+            isMember,
           };
         })
       );
-      setChatrooms(rooms);
+      setChatrooms(rooms.filter((r) => r.isMember));
     });
     return () => unsub();
-  }, []);
+  }, [user]);
 
   // Detect if the input matches an existing room ID
   useEffect(() => {
@@ -162,31 +164,31 @@ export default function ChatLobbyPage() {
   }
 
   return (
-    <div className="relative min-h-[90vh] p-6 lg:p-10 flex flex-col items-center overflow-hidden">
+    <div className="relative min-h-[90vh] p-4 md:p-6 lg:p-10 flex flex-col items-center overflow-hidden">
       {/* Background glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-2xl h-96 bg-violet-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="relative z-10 w-full max-w-4xl">
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 drop-shadow-md">
+        <div className="mb-6 md:mb-10 text-center">
+          <h1 className="text-2xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 drop-shadow-md">
             Lobby & Chatrooms
           </h1>
           <p className="text-neutral-400 mt-2">Join a public room or create your own secure space.</p>
         </div>
 
         {/* Smart Create/Join Input */}
-        <div className="flex mb-10 w-full max-w-2xl mx-auto shadow-2xl rounded-2xl overflow-hidden glass-panel">
+        <div className="flex flex-col sm:flex-row mb-6 md:mb-10 w-full max-w-2xl mx-auto shadow-2xl rounded-2xl overflow-hidden glass-panel">
           <input
             type="text"
             placeholder="Enter room name or ID..."
             value={roomInput}
             onChange={(e) => setRoomInput(e.target.value)}
-            className="flex-1 px-6 py-4 bg-transparent text-white placeholder-neutral-500 outline-none"
+            className="flex-1 px-5 md:px-6 py-3 md:py-4 bg-transparent text-white placeholder-neutral-500 outline-none text-sm md:text-base"
           />
           <button
             onClick={handleAction}
             disabled={isChecking || !roomInput.trim()}
-            className={`px-8 py-4 font-bold text-white transition-all ${
+            className={`px-6 md:px-8 py-3 md:py-4 font-bold text-white text-sm md:text-base transition-all ${
               isChecking || !roomInput.trim()
                 ? "bg-neutral-700 cursor-not-allowed opacity-50"
                 : isExistingRoom
