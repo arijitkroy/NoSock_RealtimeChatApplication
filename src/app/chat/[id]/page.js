@@ -38,6 +38,7 @@ export default function ChatRoomPage() {
   const [roomData, setRoomData] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const bottomRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -108,6 +109,7 @@ export default function ChatRoomPage() {
     const handleBeforeUnload = async () => {
       await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
         isOnline: false,
+        isTyping: false,
       }, { merge: true });
     };
 
@@ -125,6 +127,11 @@ export default function ChatRoomPage() {
   const sendMessage = async () => {
     if (!text.trim()) return;
     scrollToBottom();
+
+    // Clear typing state on send
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    setDoc(doc(db, "chatrooms", id, "members", user.uid), { isTyping: false }, { merge: true });
+
     try {
       await addDoc(collection(db, "chatrooms", id, "messages"), {
         text,
@@ -136,6 +143,18 @@ export default function ChatRoomPage() {
     } catch {
       toast.error("Message failed");
     }
+  };
+
+  const handleInputChange = (e) => {
+    setText(e.target.value);
+    if (!id || !user || !db) return;
+
+    setDoc(doc(db, "chatrooms", id, "members", user.uid), { isTyping: true }, { merge: true });
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      setDoc(doc(db, "chatrooms", id, "members", user.uid), { isTyping: false }, { merge: true });
+    }, 2000);
   };
 
   const leaveRoom = async () => {
@@ -372,14 +391,29 @@ export default function ChatRoomPage() {
 
         {/* Input Area */}
         {hasJoined && (
-          <div className="p-4 bg-black/20 backdrop-blur-lg border-t border-white/5">
-            <div className="flex w-full gap-3">
+          <div className="bg-black/20 backdrop-blur-lg border-t border-white/5">
+            {(() => {
+              const typingUsers = members.filter(m => m.isTyping && m.uid !== user?.uid);
+              if (typingUsers.length === 0) return null;
+              const names = typingUsers.map(m => m.name || "Someone");
+              const label = names.length === 1
+                ? `${names[0]} is typing...`
+                : names.length === 2
+                ? `${names[0]} and ${names[1]} are typing...`
+                : `${names[0]} and ${names.length - 1} others are typing...`;
+              return (
+                <div className="px-6 pt-2 pb-0">
+                  <span className="text-xs text-violet-400 animate-pulse font-medium">{label}</span>
+                </div>
+              );
+            })()}
+            <div className="flex w-full gap-3 p-4">
               <input
                 type="text"
                 className="flex-grow rounded-full bg-white/5 border border-white/10 px-5 py-3 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 text-white placeholder-neutral-500 transition-all"
                 placeholder="Type a message..."
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               />
               <button
