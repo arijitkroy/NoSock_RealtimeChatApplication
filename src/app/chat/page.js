@@ -26,6 +26,7 @@ export default function ChatLobbyPage() {
   const [chatrooms, setChatrooms] = useState([]);
   const [roomInput, setRoomInput] = useState("");
   const [isExistingRoom, setIsExistingRoom] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
   const [memberCounts, setMemberCounts] = useState({});
 
   useEffect(() => {
@@ -73,22 +74,38 @@ export default function ChatLobbyPage() {
 
   // Detect if the input matches an existing room ID
   useEffect(() => {
+    if (!roomInput.trim() || !db) {
+      setIsExistingRoom(false);
+      setIsChecking(false);
+      return;
+    }
+    setIsChecking(true);
     const timeout = setTimeout(async () => {
-      if (!roomInput.trim() || !db) return setIsExistingRoom(false);
-      const ref = doc(db, "chatrooms", roomInput.trim());
-      const snap = await getDoc(ref);
-      setIsExistingRoom(snap.exists());
-    }, 500); // debounce
+      try {
+        const ref = doc(db, "chatrooms", roomInput.trim());
+        const snap = await getDoc(ref);
+        setIsExistingRoom(snap.exists());
+      } catch {
+        setIsExistingRoom(false);
+      } finally {
+        setIsChecking(false);
+      }
+    }, 400);
 
     return () => clearTimeout(timeout);
   }, [roomInput]);
 
   const handleAction = async () => {
     const input = roomInput.trim();
-    if (!input) return toast.error("Input cannot be empty");
+    if (!input || isChecking) return;
 
     try {
-      if (isExistingRoom) {
+      // Always re-check the DB synchronously before acting
+      const roomRef = doc(db, "chatrooms", input);
+      const roomSnap = await getDoc(roomRef);
+      const roomExists = roomSnap.exists();
+
+      if (roomExists) {
         // Join existing room
         await setDoc(doc(db, "chatrooms", input, "members", auth.currentUser.uid), {
           email: auth.currentUser.email,
@@ -168,13 +185,16 @@ export default function ChatLobbyPage() {
           />
           <button
             onClick={handleAction}
+            disabled={isChecking || !roomInput.trim()}
             className={`px-8 py-4 font-bold text-white transition-all ${
-              isExistingRoom
+              isChecking || !roomInput.trim()
+                ? "bg-neutral-700 cursor-not-allowed opacity-50"
+                : isExistingRoom
                 ? "bg-green-600 hover:bg-green-500 shadow-[0_0_15px_rgba(22,163,74,0.4)]"
                 : "bg-violet-600 hover:bg-violet-500 shadow-[0_0_15px_rgba(124,58,237,0.4)]"
             }`}
           >
-            {isExistingRoom ? "Join Room" : "Create Room"}
+            {isChecking ? "Checking..." : isExistingRoom ? "Join Room" : "Create Room"}
           </button>
         </div>
 

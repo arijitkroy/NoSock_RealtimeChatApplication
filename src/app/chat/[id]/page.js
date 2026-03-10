@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   setDoc,
 } from "firebase/firestore";
@@ -115,20 +116,20 @@ export default function ChatRoomPage() {
     });
 
     const joinChat = async () => {
-      const membersSnapshot = await getDocs(membersCol);
-      const alreadyJoined = membersSnapshot.docs.some(
-        (doc) => doc.id === user.uid
-      );
+      const memberDocRef = doc(db, "chatrooms", id, "members", user.uid);
+      const memberSnap = await getDoc(memberDocRef);
+      const wasAlreadyOnline = memberSnap.exists() && memberSnap.data().isOnline === true;
 
-      await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
+      await setDoc(memberDocRef, {
         email: user.email,
         name: user.displayName,
         isOnline: true,
+        isTyping: false,
         photoURL: user.photoURL || "",
         joinedAt: serverTimestamp(),
       }, { merge: true });
 
-      if (!alreadyJoined) {
+      if (!wasAlreadyOnline) {
         await addDoc(collection(db, "chatrooms", id, "messages"), {
           text: `${user.displayName} has joined the chat.`,
           system: true,
@@ -193,7 +194,11 @@ export default function ChatRoomPage() {
 
   const leaveRoom = async () => {
     try {
-      await deleteDoc(doc(db, "chatrooms", id, "members", user.uid));
+      // Set offline instead of deleting so the sidebar still shows them
+      await setDoc(doc(db, "chatrooms", id, "members", user.uid), {
+        isOnline: false,
+        isTyping: false,
+      }, { merge: true });
 
       await addDoc(collection(db, "chatrooms", id, "messages"), {
         text: `${user.displayName} has left the chat.`,
@@ -201,12 +206,16 @@ export default function ChatRoomPage() {
         createdAt: serverTimestamp(),
       });
 
+      // Check if anyone is still online; if not, delete the room
       const membersSnapshot = await getDocs(
         collection(db, "chatrooms", id, "members")
       );
-      if (membersSnapshot.empty) {
+      const anyoneOnline = membersSnapshot.docs.some(
+        (d) => d.data().isOnline === true
+      );
+      if (!anyoneOnline) {
         await deleteDoc(doc(db, "chatrooms", id));
-        toast("Room deleted as no members remain.");
+        toast("Room deleted as no members remain online.");
       } else {
         toast.success("Left the room");
       }
