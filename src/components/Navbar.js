@@ -61,6 +61,9 @@ export default function Navbar() {
         <div className="hidden sm:flex items-center space-x-6 text-sm font-medium">
           <Link href="/chat" className="text-neutral-300 hover:text-violet-400 hover:drop-shadow-[0_0_8px_rgba(167,139,250,0.5)] transition-all">Chatrooms</Link>
           <Link href="/ollama" className="text-neutral-300 hover:text-violet-400 hover:drop-shadow-[0_0_8px_rgba(167,139,250,0.5)] transition-all">Ollama Chat</Link>
+          {user && (
+            <Link href="/friends" className="text-neutral-300 hover:text-violet-400 hover:drop-shadow-[0_0_8px_rgba(167,139,250,0.5)] transition-all">Friends</Link>
+          )}
 
           {user ? (
             <div className="relative" ref={dropdownRef}>
@@ -112,6 +115,9 @@ export default function Navbar() {
         <div className="sm:hidden border-t border-white/5 bg-black/80 backdrop-blur-md space-y-1 px-4 py-4 animate-in slide-in-from-top-2">
           <Link href="/chat" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">Chatrooms</Link>
           <Link href="/ollama" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">Ollama Chat</Link>
+          {user && (
+            <Link href="/friends" onClick={() => setMobileMenuOpen(false)} className="block px-4 py-3 text-neutral-200 hover:bg-white/5 rounded-lg transition">Friends</Link>
+          )}
 
           {user ? (
             <>

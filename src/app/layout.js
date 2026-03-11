@@ -23,7 +23,6 @@ export const metadata = {
   title: "NoSock",
   description: "Chat in real-time or talk to Ollama Cloud AI",
   manifest: "/manifest.json",
-  themeColor: "#7c3aed",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -33,6 +32,10 @@ export const metadata = {
     icon: "/icons/icon-512.png",
     apple: "/icons/icon-192.png",
   },
+};
+
+export const viewport = {
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({ children }) {

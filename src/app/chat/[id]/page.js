@@ -37,6 +37,7 @@ export default function ChatRoomPage() {
   const [hasJoined, setHasJoined] = useState(false);
   const [members, setMembers] = useState([]);
   const [roomData, setRoomData] = useState(null);
+  const [dmFriend, setDmFriend] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMembersOpen, setIsMobileMembersOpen] = useState(false);
   const bottomRef = useRef(null);
@@ -109,9 +110,20 @@ export default function ChatRoomPage() {
     });
 
     const roomRef = doc(db, "chatrooms", id);
-    const unsubRoom = onSnapshot(roomRef, (docSnap) => {
+    const unsubRoom = onSnapshot(roomRef, async (docSnap) => {
       if (docSnap.exists()) {
-        setRoomData({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        setRoomData({ id: docSnap.id, ...data });
+        
+        if (data.isDirectMessage && data.dmMembers && user) {
+          const friendUid = data.dmMembers.find(uid => uid !== user.uid);
+          if (friendUid) {
+            const friendDoc = await getDoc(doc(db, "users", friendUid));
+            if (friendDoc.exists()) {
+              setDmFriend(friendDoc.data());
+            }
+          }
+        }
       } else {
         router.push("/chat");
       }
@@ -280,54 +292,75 @@ export default function ChatRoomPage() {
         
         {/* Top UI Bar */}
         <div className="flex justify-between items-center px-3 md:px-6 py-3 md:py-4 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-50">
-          <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-            <span className="text-xs md:text-sm font-semibold text-neutral-200">
-              {members.filter(m => m.isOnline).length} Online
-            </span>
-          </div>
+          
+          {roomData?.isDirectMessage ? (
+            <div className="flex items-center gap-3">
+              <img 
+                src={dmFriend?.photoURL || `https://api.dicebear.com/8.x/initials/svg?seed=${dmFriend?.username || "Friend"}`} 
+                alt="Friend" 
+                className="w-8 h-8 rounded-full border border-white/10"
+              />
+              <span className="text-sm md:text-base font-bold text-neutral-100">
+                {dmFriend?.username || dmFriend?.email || "Friend"}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+              <span className="text-xs md:text-sm font-semibold text-neutral-200">
+                {members.filter(m => m.isOnline).length} Online
+              </span>
+            </div>
+          )}
           <div className="flex gap-1.5 md:gap-2 relative">
-            {/* Mobile members toggle */}
-            <button
-              onClick={() => setIsMobileMembersOpen(!isMobileMembersOpen)}
-              className="lg:hidden text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-3 py-1.5 rounded-full transition-all border border-white/5"
-            >
-              Members
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(id);
-                toast.success("Room ID copied");
-              }}
-              className="text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-2.5 md:px-3 py-1.5 rounded-full transition-all border border-white/5 flex items-center gap-1.5"
-            >
-              <FiCopy /> Copy ID
-            </button>
+            {/* Mobile members toggle, hide in DM context since it's just 2 people */}
+            {!roomData?.isDirectMessage && (
+              <button
+                onClick={() => setIsMobileMembersOpen(!isMobileMembersOpen)}
+                className="lg:hidden text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-3 py-1.5 rounded-full transition-all border border-white/5"
+              >
+                Members
+              </button>
+            )}
 
-            <button
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-neutral-200 transition-all border border-white/5"
-            >
-              <FiSettings size={14} className={isSettingsOpen ? "rotate-90 transition-transform" : "transition-transform"} />
-            </button>
-
-            {isSettingsOpen && (
-              <div className="absolute right-0 top-[110%] w-48 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl py-2 z-99">
+            {!roomData?.isDirectMessage && (
+              <>
                 <button
-                  onClick={leaveRoom}
-                  className="w-full text-left px-5 py-2.5 text-sm text-neutral-200 hover:bg-white/10 flex items-center gap-3 transition-colors"
+                  onClick={() => {
+                    navigator.clipboard.writeText(id);
+                    toast.success("Room ID copied");
+                  }}
+                  className="text-xs bg-white/10 hover:bg-white/20 text-neutral-200 px-2.5 md:px-3 py-1.5 rounded-full transition-all border border-white/5 flex items-center gap-1.5"
                 >
-                  <FiLogOut size={16} /> Leave Room
+                  <FiCopy /> Copy ID
                 </button>
-                {roomData?.createdBy === user?.uid && (
-                  <button
-                    onClick={deleteRoom}
-                    className="w-full text-left px-5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-3 transition-colors mt-1"
-                  >
-                    <FiTrash2 size={16} /> Delete Room
-                  </button>
+
+                <button
+                  onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-neutral-200 transition-all border border-white/5"
+                >
+                  <FiSettings size={14} className={isSettingsOpen ? "rotate-90 transition-transform" : "transition-transform"} />
+                </button>
+
+                {isSettingsOpen && (
+                  <div className="absolute right-0 top-[110%] w-48 bg-neutral-900 border border-white/10 rounded-2xl shadow-2xl py-2 z-[99]">
+                    <button
+                      onClick={leaveRoom}
+                      className="w-full text-left px-5 py-2.5 text-sm text-neutral-200 hover:bg-white/10 flex items-center gap-3 transition-colors"
+                    >
+                      <FiLogOut size={16} /> Leave Room
+                    </button>
+                    {roomData?.createdBy === user?.uid && (
+                      <button
+                        onClick={deleteRoom}
+                        className="w-full text-left px-5 py-2.5 text-sm text-red-500 hover:bg-red-500/10 flex items-center gap-3 transition-colors mt-1"
+                      >
+                        <FiTrash2 size={16} /> Delete Room
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -413,34 +446,36 @@ export default function ChatRoomPage() {
           </div>
 
           {/* Members Sidebar - Desktop */}
-          <div className="hidden lg:flex flex-col w-64 bg-black/10 backdrop-blur-md">
-            <div className="p-4 border-b border-white/5">
-              <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-              {members.map(member => (
-                <div key={member.uid} className="flex items-center gap-3">
-                  <div className="relative">
-                    <img 
-                      src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
-                      alt={member.name}
-                      className="w-8 h-8 rounded-full border border-white/10 object-cover"
-                    />
-                    <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0d1020] ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
+          {!roomData?.isDirectMessage && (
+            <div className="hidden lg:flex flex-col w-64 bg-black/10 backdrop-blur-md">
+              <div className="p-4 border-b border-white/5">
+                <h3 className="text-sm font-bold text-neutral-200 uppercase tracking-wider">Members</h3>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                {members.map(member => (
+                  <div key={member.uid} className="flex items-center gap-3">
+                    <div className="relative">
+                      <img 
+                        src={member.photoURL || `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${member.uid}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`} 
+                        alt={member.name}
+                        className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                      />
+                      <div className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border border-[#0d1020] ${member.isOnline ? "bg-green-500 animate-pulse" : "bg-neutral-500"}`}></div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-neutral-200 truncate w-36">
+                        {member.name || "Anonymous User"}
+                        {member.uid === user?.uid && " (You)"}
+                      </span>
+                      <span className="text-[10px] text-neutral-500">
+                        {member.isOnline ? "Online" : "Offline"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-neutral-200 truncate w-36">
-                      {member.name || "Anonymous User"}
-                      {member.uid === user?.uid && " (You)"}
-                    </span>
-                    <span className="text-[10px] text-neutral-500">
-                      {member.isOnline ? "Online" : "Offline"}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
 

@@ -69,7 +69,7 @@ export default function ChatLobbyPage() {
           };
         })
       );
-      setChatrooms(rooms.filter((r) => r.isMember));
+      setChatrooms(rooms.filter((r) => r.isMember && !r.isDirectMessage));
     });
     return () => unsub();
   }, [user]);

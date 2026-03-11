@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useFirebase } from "@/context/FirebaseProvider";
 import toast from "react-hot-toast";
 import { FcGoogle } from "react-icons/fc";
 
 export default function LoginPage() {
-  const { auth } = useFirebase();
+  const { auth, db } = useFirebase();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,7 +28,27 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      
+      // Ensure user document exists in 'users' collection
+      const uid = userCredential.user.uid;
+      const email = userCredential.user.email;
+      const generatedUsername = userCredential.user.displayName || email.split('@')[0];
+      
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+          username: generatedUsername,
+          email,
+          createdAt: new Date(),
+        });
+        await setDoc(doc(db, "usernames", generatedUsername), {
+          uid,
+        });
+      }
+
       toast.success("Logged in with Google!");
       router.push("/chat");
     } catch (error) {
